@@ -1,6 +1,8 @@
-//  СОСТОЯНИЕ 
-const STORAGE_KEY = 'cards_planner_state_v2';
+//  КЛЮЧ ХРАНИЛИЩА 
+// v3 — новая логика, старый стейт не помешает
+const STORAGE_KEY = 'cards_planner_state_v3';
 
+//  СОСТОЯНИЕ 
 const state = {
     // Настройки
     totalCards: 28000,
@@ -10,20 +12,23 @@ const state = {
     breakDuration: 10,
     lunchDuration: 60,
 
+    // План
+    baseNorm: 0,          // фиксированная дневная норма = totalCards / daysInMonth
+    carryover: 0,         // дефицит, перенесённый с прошлого дня
+    cardsPerDayNorm: 0,   // baseNorm + carryover
+
     // Прогресс
     currentDay: 1,
     cardsDoneToday: 0,
-    cardsPerDayNorm: 0,
-    remainingCards: 28000,
+    totalCardsDone: 0,    // всего сделано за месяц
 
     // Таймер
-    status: 'idle',           // idle | working | break | lunch | paused
-    secondsIntoBlock: 0,      // сколько секунд прошло в текущем блоке
-    totalWorkSecondsToday: 0, // всего рабочих секунд за день
+    status: 'idle',
+    secondsIntoBlock: 0,
+    totalWorkSecondsToday: 0,
     breakSecondsLeft: 0,
     currentScheduleIndex: 0,
     schedule: [],
-    extraWorkSeconds: 0,
 
     appStarted: false
 };
@@ -43,15 +48,12 @@ function formatDuration(seconds) {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function $(id) {
-    return document.getElementById(id);
-}
+function $(id) { return document.getElementById(id); }
 
 //  СОХРАНЕНИЕ / ЗАГРУЗКА 
 function saveState() {
     try {
-        const data = { ...state };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
         console.warn('Не удалось сохранить:', e);
     }
@@ -111,15 +113,26 @@ function showSetupScreen() {
     $('workScreen').classList.add('hidden');
 }
 
-//  СТАРТ / НАЗАД 
+//  СТАРТ / НАЗАД / СБРОС 
 function startApp() {
     const settings = readSettingsFromForm();
     const saved = loadRawState();
 
-    // Если есть сохранённая сессия с теми же настройками — продолжаем её
+    // Если есть сохранённая сессия с теми же настройками — восстанавливаем
     if (saved && saved.appStarted && settingsMatch(saved, settings)) {
         Object.assign(state, saved);
+
+        // На всякий случай пересчитываем (на случай, если формат изменился)
+        if (!state.baseNorm) {
+            state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
+        }
+        state.cardsPerDayNorm = state.baseNorm + state.carryover;
+
         showWorkScreen();
+        recalculateNorm();
+        if (!state.schedule || state.schedule.length === 0) {
+            buildSchedule();
+        }
         renderSchedule();
         updateStats();
         resetTimer();
@@ -128,17 +141,18 @@ function startApp() {
 
     // Иначе — новая сессия
     Object.assign(state, settings);
-    state.remainingCards = state.totalCards;
+    state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
+    state.carryover = 0;
+    state.cardsPerDayNorm = state.baseNorm;
     state.currentDay = 1;
     state.cardsDoneToday = 0;
-    state.cardsPerDayNorm = 0;
+    state.totalCardsDone = 0;
     state.status = 'idle';
     state.secondsIntoBlock = 0;
     state.totalWorkSecondsToday = 0;
     state.breakSecondsLeft = 0;
     state.currentScheduleIndex = 0;
     state.schedule = [];
-    state.extraWorkSeconds = 0;
     state.appStarted = true;
 
     recalculateNorm();
@@ -150,7 +164,7 @@ function startApp() {
     showWorkScreen();
 }
 
-// НЕ очищает прогресс — просто возвращает на экран настроек
+// Возврат к настройкам БЕЗ потери прогресса
 function backToSettings() {
     clearInterval(tickInterval);
     if (state.status === 'working' || state.status === 'break' || state.status === 'lunch') {
@@ -161,35 +175,35 @@ function backToSettings() {
     showSetupScreen();
 }
 
-// Полный сброс прогресса (отдельная кнопка)
+// Полный сброс прогресса (кнопка в настройках)
 function resetProgress() {
-    if (!confirm('Сбросить весь прогресс? Настройки останутся.')) return;
+    if (!confirm('Сбросить весь прогресс? Настройки останутся, но прогресс обнулится.')) return;
     clearInterval(tickInterval);
 
     const settings = readSettingsFromForm();
     Object.assign(state, settings);
-    state.remainingCards = state.totalCards;
+    state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
+    state.carryover = 0;
+    state.cardsPerDayNorm = state.baseNorm;
     state.currentDay = 1;
     state.cardsDoneToday = 0;
-    state.cardsPerDayNorm = 0;
+    state.totalCardsDone = 0;
     state.status = 'idle';
     state.secondsIntoBlock = 0;
     state.totalWorkSecondsToday = 0;
     state.breakSecondsLeft = 0;
     state.currentScheduleIndex = 0;
     state.schedule = [];
-    state.extraWorkSeconds = 0;
     state.appStarted = false;
 
     clearState();
     alert('Прогресс сброшен.');
 }
 
-//  ПЕРЕСЧЁТ НОРМЫ 
+//  НОРМА 
 function recalculateNorm() {
-    const daysLeft = state.daysInMonth - state.currentDay + 1;
-    state.cardsPerDayNorm = Math.ceil(state.remainingCards / daysLeft);
-    state.targetWorkSecondsToday = state.cardsPerDayNorm * state.timePerCard;
+    state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
+    state.cardsPerDayNorm = state.baseNorm + state.carryover;
 
     $('dayNumber').textContent = state.currentDay;
     $('dayTotal').textContent = state.daysInMonth;
@@ -266,7 +280,6 @@ function renderSchedule() {
 }
 
 //  ТАЙМЕР 
-// НЕ сбрасывает секунды. Только обновляет UI.
 function resetTimer() {
     clearInterval(tickInterval);
 
@@ -353,8 +366,6 @@ function goToBreak(block) {
         $('timer').textContent = formatDuration(state.breakSecondsLeft);
 
         if (state.breakSecondsLeft <= 0) {
-            state.extraWorkSeconds += block.duration * 60;
-            state.targetWorkSecondsToday += block.duration * 60;
             goToNextBlock();
         }
     }, 1000);
@@ -379,11 +390,13 @@ function pauseWork() {
     saveState();
 }
 
-//  ОБНОВЛЕНИЕ UI 
+//  СТАТИСТИКА 
 function updateStats() {
     $('statDone').textContent = state.cardsDoneToday;
+
     const left = Math.max(0, state.cardsPerDayNorm - state.cardsDoneToday);
     $('statLeft').textContent = left;
+
     $('statPerHour').textContent = Math.ceil(state.cardsPerDayNorm / state.hoursPerDay);
 
     const pct = state.cardsPerDayNorm > 0
@@ -406,29 +419,36 @@ function endDay() {
         alert(`✅ День ${state.currentDay} выполнен!\nСделано: ${done} из ${norm}`);
     } else {
         const deficit = norm - done;
-        alert(`⚠️ День ${state.currentDay} не выполнен.\nСделано: ${done} из ${norm}\nОстаток ${deficit} карточек переносится на следующий день.`);
+        alert(`⚠️ День ${state.currentDay} не выполнен.\nСделано: ${done} из ${norm}\nДефицит ${deficit} перенесён на следующий день.`);
     }
 
-    // Уменьшаем общий остаток на то, что реально сделано
-    state.remainingCards = Math.max(0, state.remainingCards - done);
-    state.currentDay++;
+    // Обновляем общий прогресс
+    state.totalCardsDone += done;
 
     // Проверка окончания месяца
-    if (state.currentDay > state.daysInMonth || state.remainingCards <= 0) {
-        alert('🎉 Месяц завершён! Все карточки выполнены.');
+    if (state.currentDay >= state.daysInMonth || state.totalCardsDone >= state.totalCards) {
+        alert(`🎉 Месяц завершён!\nВсего сделано: ${state.totalCardsDone} из ${state.totalCards}`);
         clearState();
         state.appStarted = false;
         showSetupScreen();
         return;
     }
 
-    // Сброс дневных счётчиков
+    // Дефицит = что не успел сделать
+    const deficit = Math.max(0, norm - done);
+
+    // Переходим на следующий день
+    state.currentDay++;
+    state.carryover = deficit;
+    state.cardsPerDayNorm = state.baseNorm + state.carryover;
+
+    // Сбрасываем дневные счётчики
     state.cardsDoneToday = 0;
     state.totalWorkSecondsToday = 0;
     state.secondsIntoBlock = 0;
-    state.extraWorkSeconds = 0;
     state.currentScheduleIndex = 0;
     state.status = 'idle';
+    state.schedule = []; // перегенерируем график
 
     recalculateNorm();
     buildSchedule();
@@ -438,7 +458,7 @@ function endDay() {
     saveState();
 }
 
-//  ЭКСПОРТ 
+//  ЭКСПОРТ В HTML 
 window.startApp = startApp;
 window.backToSettings = backToSettings;
 window.resetProgress = resetProgress;
@@ -453,8 +473,21 @@ window.addEventListener('load', () => {
 
     if (saved && saved.appStarted) {
         Object.assign(state, saved);
+
+        // Миграция со старых версий
+        if (!state.baseNorm) {
+            state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
+        }
+        if (state.carryover === undefined) state.carryover = 0;
+        if (state.totalCardsDone === undefined) state.totalCardsDone = 0;
+        state.cardsPerDayNorm = state.baseNorm + state.carryover;
+
         fillFormFromState();
         showWorkScreen();
+        recalculateNorm(); // <-- фикс: обновляем номер дня и норму в UI
+        if (!state.schedule || state.schedule.length === 0) {
+            buildSchedule();
+        }
         renderSchedule();
         updateStats();
         resetTimer();
