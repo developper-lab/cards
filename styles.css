@@ -6,151 +6,162 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0f172a;
-    color: #e2e8f0;
+    background: #f4f1ec;
+    color: #2f2c28;
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    padding: 20px;
-    line-height: 1.5;
+    padding: 24px 20px;
+    line-height: 1.55;
+    font-size: 15px;
 }
 
-/* ---------- Контейнер ---------- */
+/*  Контейнер  */
 .container {
     width: 100%;
-    max-width: 900px;
+    max-width: 860px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
 }
 
-/* ---------- Экраны ---------- */
+/*  Экраны  */
 .screen {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
 }
 
 .hidden {
     display: none !important;
 }
 
-/* ---------- Заголовки ---------- */
+/*  Заголовки  */
 .title {
-    font-size: 24px;
-    color: #38bdf8;
+    font-size: 22px;
+    font-weight: 600;
+    color: #2f2c28;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
+    letter-spacing: -0.01em;
 }
 
 .subtitle {
-    font-size: 18px;
-    color: #94a3b8;
-    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #6b635a;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-/* ---------- Карточка ---------- */
+/*  Карточка  */
 .card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 12px;
+    background: #fbf9f5;
+    border: 1px solid #e3ddd3;
+    border-radius: 10px;
     padding: 20px;
     display: flex;
     flex-direction: column;
 }
 
-/* ---------- Поля формы ---------- */
+/*  Поля формы  */
 .fields {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 14px;
 }
 
 .field {
     display: flex;
     flex-direction: column;
-    flex: 1 1 180px;
-    min-width: 180px;
+    flex: 1 1 190px;
+    min-width: 190px;
 }
 
 .field label {
     font-size: 13px;
-    color: #94a3b8;
-    margin-bottom: 4px;
+    color: #7a7167;
+    margin-bottom: 6px;
 }
 
 .field input {
     width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #334155;
-    background: #0f172a;
-    color: #e2e8f0;
+    padding: 10px 12px;
+    border-radius: 7px;
+    border: 1px solid #ddd6cb;
+    background: #ffffff;
+    color: #2f2c28;
     font-size: 15px;
+    font-family: inherit;
+    transition: border-color 0.15s;
 }
 
 .field input:focus {
     outline: none;
-    border-color: #38bdf8;
+    border-color: #a89e8e;
 }
 
-/* ---------- Заметка ---------- */
+/*  Заметка  */
 .note {
-    font-size: 12px;
-    color: #64748b;
-    margin-top: 12px;
+    font-size: 13px;
+    color: #948b7f;
+    margin-top: 14px;
+    line-height: 1.5;
 }
 
-/* ---------- Кнопки ---------- */
+/*  Кнопки  */
 .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 16px;
+    gap: 10px;
+    margin-top: 18px;
 }
 
 .btn {
     flex: 1 1 140px;
     min-width: 140px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    border: none;
-    font-weight: 600;
-    font-size: 15px;
+    padding: 11px 18px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    font-weight: 500;
+    font-size: 14px;
+    font-family: inherit;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s;
 }
 
 .btn.primary {
-    background: #38bdf8;
-    color: #0f172a;
+    background: #5b6b53;
+    color: #f4f1ec;
 }
 
 .btn.primary:hover {
-    background: #0ea5e9;
+    background: #4d5b46;
 }
 
 .btn.secondary {
-    background: #334155;
-    color: #e2e8f0;
+    background: #ece7de;
+    color: #4a453d;
+    border-color: #ddd6cb;
 }
 
 .btn.secondary:hover {
-    background: #475569;
+    background: #e2dbcf;
 }
 
 .btn.danger {
-    background: #ef4444;
-    color: #ffffff;
+    background: #b56a5c;
+    color: #fbf9f5;
 }
 
 .btn.danger:hover {
-    background: #dc2626;
+    background: #a15b4e;
 }
 
-/* ---------- Статистика ---------- */
+/*  Статистика  */
 .stats {
     display: flex;
     flex-wrap: wrap;
@@ -159,9 +170,10 @@ body {
 
 .stat {
     flex: 1 1 140px;
-    background: #0f172a;
-    border-radius: 8px;
-    padding: 12px;
+    background: #fbf9f5;
+    border: 1px solid #e3ddd3;
+    border-radius: 10px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -170,58 +182,61 @@ body {
 
 .stat-value {
     font-size: 22px;
-    font-weight: 700;
-    color: #38bdf8;
+    font-weight: 600;
+    color: #3f4a3a;
+    font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
     font-size: 12px;
-    color: #94a3b8;
-    margin-top: 4px;
+    color: #7a7167;
+    margin-top: 6px;
+    text-align: center;
 }
 
-/* ---------- Прогресс-бар ---------- */
+/*  Прогресс-бар  */
 .progress-bar {
     width: 100%;
-    height: 12px;
-    background: #0f172a;
-    border-radius: 6px;
+    height: 8px;
+    background: #ece7de;
+    border-radius: 4px;
     overflow: hidden;
 }
 
 .progress-fill {
     height: 100%;
     width: 0;
-    background: linear-gradient(90deg, #38bdf8, #22c55e);
+    background: #87967d;
     transition: width 0.3s;
 }
 
-/* ---------- Таймер ---------- */
+/*  Таймер  */
 .status {
     text-align: center;
-    font-size: 16px;
-    color: #94a3b8;
-    margin-bottom: 12px;
+    font-size: 14px;
+    color: #7a7167;
+    margin-bottom: 6px;
 }
 
 .timer {
-    font-size: 48px;
-    font-weight: 700;
+    font-size: 52px;
+    font-weight: 500;
     text-align: center;
-    color: #38bdf8;
+    color: #2f2c28;
     font-variant-numeric: tabular-nums;
-    margin: 20px 0;
+    margin: 16px 0 20px;
+    letter-spacing: 0.02em;
 }
 
 .timer.break {
-    color: #f59e0b;
+    color: #a8843e;
 }
 
 .timer.lunch {
-    color: #22c55e;
+    color: #5b6b53;
 }
 
-/* ---------- Расписание ---------- */
+/*  Расписание  */
 .schedule {
     display: flex;
     flex-direction: column;
@@ -233,37 +248,45 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: 7px;
     font-size: 14px;
+    background: #f4f1ec;
+    border-left: 3px solid #ddd6cb;
+    color: #4a453d;
 }
 
 .schedule-item.work {
-    background: rgba(30, 58, 138, 0.2);
-    border-left: 3px solid #3b82f6;
+    background: #eef1ea;
+    border-left-color: #87967d;
 }
 
 .schedule-item.break {
-    background: rgba(120, 53, 15, 0.2);
-    border-left: 3px solid #f59e0b;
+    background: #f6f0e2;
+    border-left-color: #c9a961;
 }
 
 .schedule-item.lunch {
-    background: rgba(20, 83, 45, 0.2);
-    border-left: 3px solid #22c55e;
+    background: #eaf0e8;
+    border-left-color: #5b6b53;
 }
 
 .schedule-item.active {
-    box-shadow: 0 0 0 2px #38bdf8;
+    outline: 1.5px solid #a89e8e;
+    outline-offset: -1px;
 }
 
-/* ---------- Адаптив ---------- */
+/*  Адаптив  */
 @media (max-width: 500px) {
+    body {
+        padding: 16px 12px;
+    }
+
     .title {
-        font-size: 20px;
+        font-size: 19px;
     }
 
     .timer {
-        font-size: 36px;
+        font-size: 38px;
     }
 
     .btn {
