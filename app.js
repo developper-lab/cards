@@ -1,6 +1,7 @@
 //  СОСТОЯНИЕ 
+const STORAGE_KEY = 'cards_planner_state';
+
 const state = {
-    // Настройки
     totalCards: 28000,
     daysInMonth: 31,
     hoursPerDay: 8,
@@ -8,13 +9,11 @@ const state = {
     breakDuration: 10,
     lunchDuration: 60,
 
-    // Текущий день
     currentDay: 1,
     cardsDoneToday: 0,
     cardsPerDayNorm: 0,
     remainingCards: 28000,
 
-    // Таймер
     status: 'idle',
     secondsElapsed: 0,
     breakSecondsLeft: 0,
@@ -22,7 +21,9 @@ const state = {
     schedule: [],
     totalWorkSecondsToday: 0,
     targetWorkSecondsToday: 0,
-    extraWorkSeconds: 0
+    extraWorkSeconds: 0,
+
+    appStarted: false // флаг, что пользователь уже нажал «Начать»
 };
 
 let tickInterval = null;
@@ -44,6 +45,54 @@ function $(id) {
     return document.getElementById(id);
 }
 
+//  СОХРАНЕНИЕ / ЗАГРУЗКА 
+function saveState() {
+    try {
+        const data = {
+            totalCards: state.totalCards,
+            daysInMonth: state.daysInMonth,
+            hoursPerDay: state.hoursPerDay,
+            timePerCard: state.timePerCard,
+            breakDuration: state.breakDuration,
+            lunchDuration: state.lunchDuration,
+
+            currentDay: state.currentDay,
+            cardsDoneToday: state.cardsDoneToday,
+            cardsPerDayNorm: state.cardsPerDayNorm,
+            remainingCards: state.remainingCards,
+
+            currentScheduleIndex: state.currentScheduleIndex,
+            totalWorkSecondsToday: state.totalWorkSecondsToday,
+            targetWorkSecondsToday: state.targetWorkSecondsToday,
+            extraWorkSeconds: state.extraWorkSeconds,
+            schedule: state.schedule,
+
+            appStarted: state.appStarted
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.warn('Не удалось сохранить состояние:', e);
+    }
+}
+
+function loadState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+
+        Object.assign(state, data);
+        return state.appStarted === true;
+    } catch (e) {
+        console.warn('Не удалось загрузить состояние:', e);
+        return false;
+    }
+}
+
+function clearState() {
+    localStorage.removeItem(STORAGE_KEY);
+}
+
 //  СТАРТ ПРИЛОЖЕНИЯ 
 function startApp() {
     state.totalCards = +$('totalCards').value || 1;
@@ -56,6 +105,9 @@ function startApp() {
     state.remainingCards = state.totalCards;
     state.currentDay = 1;
     state.cardsDoneToday = 0;
+    state.totalWorkSecondsToday = 0;
+    state.extraWorkSeconds = 0;
+    state.appStarted = true;
 
     $('setupScreen').classList.add('hidden');
     $('workScreen').classList.remove('hidden');
@@ -65,13 +117,40 @@ function startApp() {
     renderSchedule();
     updateStats();
     resetTimer();
+    saveState();
 }
 
 function resetApp() {
     clearInterval(tickInterval);
     state.status = 'idle';
+    state.appStarted = false;
+    clearState();
+
     $('setupScreen').classList.remove('hidden');
     $('workScreen').classList.add('hidden');
+}
+
+function resetProgress() {
+    if (!confirm('Сбросить весь прогресс? Настройки останутся, но прогресс по дням обнулится.')) return;
+
+    // Читаем только настройки из формы, прогресс обнуляем
+    state.totalCards = +$('totalCards').value || 1;
+    state.daysInMonth = +$('daysInMonth').value || 1;
+    state.hoursPerDay = +$('hoursPerDay').value || 8;
+    state.timePerCard = Math.max(15, +$('timePerCard').value || 15);
+    state.breakDuration = +$('breakDuration').value || 10;
+    state.lunchDuration = +$('lunchDuration').value || 0;
+
+    state.remainingCards = state.totalCards;
+    state.currentDay = 1;
+    state.cardsDoneToday = 0;
+    state.totalWorkSecondsToday = 0;
+    state.extraWorkSeconds = 0;
+    state.currentScheduleIndex = 0;
+    state.appStarted = false;
+
+    clearState();
+    alert('Прогресс сброшен.');
 }
 
 //  ПЕРЕСЧЁТ НОРМЫ 
@@ -158,10 +237,11 @@ function renderSchedule() {
 function resetTimer() {
     clearInterval(tickInterval);
     state.secondsElapsed = 0;
-    state.totalWorkSecondsToday = 0;
-    $('timer').textContent = '00:00';
+    $('timer').textContent = formatDuration(state.totalWorkSecondsToday % 90 * 60);
     $('timer').className = 'timer';
-    $('statusText').textContent = 'Готов к работе';
+    $('statusText').textContent = state.totalWorkSecondsToday > 0
+        ? 'Продолжить работу'
+        : 'Готов к работе';
     $('btnStart').classList.remove('hidden');
     $('btnPause').classList.add('hidden');
     $('btnSkip').classList.add('hidden');
@@ -183,16 +263,17 @@ function startWork() {
         state.cardsDoneToday = Math.floor(state.totalWorkSecondsToday / state.timePerCard);
 
         const blockSeconds = getCurrentBlockSeconds();
-        const secondsIntoBlock = state.secondsElapsed % blockSeconds;
+        const secondsIntoBlock = state.totalWorkSecondsToday % blockSeconds;
         $('timer').textContent = formatDuration(secondsIntoBlock);
 
         updateStats();
 
         if (secondsIntoBlock >= blockSeconds - 1) {
-            state.secondsElapsed = 0;
             goToNextBlock();
         }
     }, 1000);
+
+    saveState();
 }
 
 function getCurrentBlockSeconds() {
@@ -218,6 +299,8 @@ function goToNextBlock() {
     } else {
         startWork();
     }
+
+    saveState();
 }
 
 function goToBreak(block) {
@@ -235,7 +318,6 @@ function goToBreak(block) {
         $('timer').textContent = formatDuration(state.breakSecondsLeft);
 
         if (state.breakSecondsLeft <= 0) {
-            // Пользователь не пропустил перерыв — добавляем к работе
             state.extraWorkSeconds += block.duration * 60;
             state.targetWorkSecondsToday += block.duration * 60;
             goToNextBlock();
@@ -243,12 +325,14 @@ function goToBreak(block) {
     }, 1000);
 
     renderSchedule();
+    saveState();
 }
 
 function skipBreak() {
     clearInterval(tickInterval);
     state.breakSecondsLeft = 0;
     goToNextBlock();
+    saveState();
 }
 
 function pauseWork() {
@@ -257,6 +341,7 @@ function pauseWork() {
     $('statusText').textContent = '⏸ Пауза';
     $('btnStart').classList.remove('hidden');
     $('btnPause').classList.add('hidden');
+    saveState();
 }
 
 //  ОБНОВЛЕНИЕ UI 
@@ -270,6 +355,7 @@ function updateStats() {
     $('progressFill').style.width = pct + '%';
 
     renderSchedule();
+    saveState();
 }
 
 //  ЗАВЕРШЕНИЕ ДНЯ 
@@ -296,6 +382,7 @@ function endDay() {
     }
 
     state.cardsDoneToday = 0;
+    state.totalWorkSecondsToday = 0;
     state.extraWorkSeconds = 0;
 
     recalculateNorm();
@@ -303,18 +390,46 @@ function endDay() {
     renderSchedule();
     resetTimer();
     updateStats();
+    saveState();
 }
 
-//  ЭКСПОРТ ФУНКЦИЙ В HTML 
+//  ЭКСПОРТ 
 window.startApp = startApp;
 window.resetApp = resetApp;
+window.resetProgress = resetProgress;
 window.startWork = startWork;
 window.pauseWork = pauseWork;
 window.skipBreak = skipBreak;
 window.endDay = endDay;
 
-// Автозапуск
+//  ВОССТАНОВЛЕНИЕ ПРИ ЗАГРУЗКЕ 
 window.addEventListener('load', () => {
-    $('setupScreen').classList.remove('hidden');
-    $('workScreen').classList.add('hidden');
+    const hasSaved = loadState();
+
+    if (hasSaved) {
+        // Заполняем форму сохранёнными настройками
+        $('totalCards').value = state.totalCards;
+        $('daysInMonth').value = state.daysInMonth;
+        $('hoursPerDay').value = state.hoursPerDay;
+        $('timePerCard').value = state.timePerCard;
+        $('breakDuration').value = state.breakDuration;
+        $('lunchDuration').value = state.lunchDuration;
+
+        // Показываем рабочий экран
+        $('setupScreen').classList.add('hidden');
+        $('workScreen').classList.remove('hidden');
+
+        // Пересчитываем норму, но НЕ строим график заново, если он уже есть
+        if (!state.schedule || state.schedule.length === 0) {
+            recalculateNorm();
+            buildSchedule();
+        }
+
+        renderSchedule();
+        updateStats();
+        resetTimer();
+    } else {
+        $('setupScreen').classList.remove('hidden');
+        $('workScreen').classList.add('hidden');
+    }
 });

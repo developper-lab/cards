@@ -20,7 +20,7 @@
                 <div class="fields">
                     <div class="field">
                         <label for="totalCards">Всего карточек за месяц</label>
-                        <input type="number" id="totalCards" value="28000" min="6700">
+                        <input type="number" id="totalCards" value="28000" min="1">
                     </div>
                     <div class="field">
                         <label for="daysInMonth">Дней в месяце</label>
@@ -50,6 +50,7 @@
 
                 <div class="actions">
                     <button class="btn primary" onclick="startApp()">🚀 Начать</button>
+                    <button class="btn secondary" onclick="resetProgress()">🔄 Сбросить прогресс</button>
                 </div>
             </div>
         </section>
