@@ -40,6 +40,11 @@
                             id="breakDuration" value="10" min="1"></div>
                     <div class="field"><label for="lunchDuration">Обед, минут</label><input type="number"
                             id="lunchDuration" value="60" min="0"></div>
+                    <div class="field start-time-field"><label for="startTime">🕘 Начало рабочего дня</label>
+                        <div class="time-input-row"><input type="time" id="startTime" value="09:00"><button
+                                type="button" class="time-now" onclick="setStartTimeNow()">Сейчас</button></div>
+                        <small>Расписание строится от этого времени</small>
+                    </div>
                 </div>
                 <div class="actions">
                     <button class="btn primary" onclick="startApp()">🚀 Начать / продолжить</button>
@@ -70,7 +75,7 @@
                         <div class="eyebrow">СЕГОДНЯ</div>
                         <div class="big-number"><span id="statDone">0</span><span class="slash"> / </span><span
                                 id="statNorm">0</span></div>
-                        <div class="muted">карточек выполнено</div>
+                        <div class="muted">карточек выполнено · чистое время работы</div>
                     </div>
                     <div class="percent" id="dayPercent">0%</div>
                 </div>
@@ -81,7 +86,7 @@
                     <div class="metric"><span>Осталось</span><strong id="statLeft">0</strong></div>
                     <div class="metric"><span>Текущий темп</span><strong id="statPerHour">0/ч</strong></div>
                     <div class="metric"><span>Нужно</span><strong id="requiredPerHour">0/ч</strong></div>
-                    <div class="metric"><span>Прогноз</span><strong id="finishForecast">—</strong></div>
+                    <div class="metric"><span>Окончание по плану</span><strong id="finishForecast">—</strong></div>
                 </div>
             </div>
 

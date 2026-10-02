@@ -2,7 +2,7 @@ const STORAGE_KEY = 'cards_planner_state_v4';
 
 const state = {
     totalCards: 28000, daysInMonth: 31, hoursPerDay: 8, timePerCard: 15,
-    breakDuration: 10, lunchDuration: 60,
+    breakDuration: 10, lunchDuration: 60, startTime: '09:00',
     baseNorm: 0, carryover: 0, cardsPerDayNorm: 0,
     currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0,
     status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0,
@@ -15,12 +15,12 @@ const $ = id => document.getElementById(id);
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 function formatDuration(sec) { sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
 function formatTime(min) { return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}` }
-function settings() { return { totalCards: +$('totalCards').value || 1, daysInMonth: +$('daysInMonth').value || 1, hoursPerDay: +$('hoursPerDay').value || 8, timePerCard: Math.max(15, +$('timePerCard').value || 15), breakDuration: Math.max(1, +$('breakDuration').value || 10), lunchDuration: Math.max(0, +$('lunchDuration').value || 0) } }
+function settings() { return { totalCards: +$('totalCards').value || 1, daysInMonth: +$('daysInMonth').value || 1, hoursPerDay: +$('hoursPerDay').value || 8, timePerCard: Math.max(15, +$('timePerCard').value || 15), breakDuration: Math.max(1, +$('breakDuration').value || 10), lunchDuration: Math.max(0, +$('lunchDuration').value || 0), startTime: $('startTime').value || '09:00' } }
 function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch (e) { } }
 function loadState() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch (e) { return null } }
 function clearState() { localStorage.removeItem(STORAGE_KEY) }
 function match(a, b) { return Object.keys(b).every(k => a[k] === b[k]) }
-function fillForm() { for (const k of ['totalCards', 'daysInMonth', 'hoursPerDay', 'timePerCard', 'breakDuration', 'lunchDuration']) $(k).value = state[k] }
+function fillForm() { for (const k of ['totalCards', 'daysInMonth', 'hoursPerDay', 'timePerCard', 'breakDuration', 'lunchDuration', 'startTime']) $(k).value = state[k] }
 function showWork() { $('setupScreen').classList.add('hidden'); $('workScreen').classList.remove('hidden') }
 function showSetup() { $('workScreen').classList.add('hidden'); $('setupScreen').classList.remove('hidden') }
 
@@ -33,7 +33,9 @@ function recalc() {
 }
 
 function buildSchedule() {
-    const schedule = []; let current = 9 * 60, worked = 0, lunch = false;
+    const schedule = [];
+    const [startHour, startMinute] = String(state.startTime || '09:00').split(':').map(Number);
+    let current = (Number.isFinite(startHour) ? startHour : 9) * 60 + (Number.isFinite(startMinute) ? startMinute : 0), worked = 0, lunch = false;
     while (worked < state.hoursPerDay * 60) {
         const len = Math.min(90, state.hoursPerDay * 60 - worked);
         schedule.push({ type: 'work', startMin: current, endMin: current + len, duration: len });
@@ -78,10 +80,8 @@ function updateStats() {
     const hours = workSecondsToday() / 3600;
     const speed = hours > 0 ? Math.floor(done / hours) : 0;
     $('statPerHour').textContent = speed + ' /ч'; $('requiredPerHour').textContent = currentRequiredPerHour() + ' /ч';
-    const remainingCards = left, secPerCard = state.timePerCard;
-    const forecastSec = hours > 0 ? workSecondsToday() + remainingCards * secPerCard : remainingCards * secPerCard;
-    const now = new Date(Date.now() + Math.max(0, forecastSec) * 1000);
-    $('finishForecast').textContent = done >= norm ? '✓ Готово' : now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const plannedEnd = state.schedule.length ? state.schedule[state.schedule.length - 1].endMin : null;
+    $('finishForecast').textContent = done >= norm ? '✓ Готово' : plannedEnd === null ? '—' : formatTime(plannedEnd);
     const monthLeft = Math.max(0, state.totalCards - state.totalCardsDone - state.cardsDoneToday);
     const monthPct = state.totalCards ? clamp((state.totalCardsDone + state.cardsDoneToday) / state.totalCards * 100, 0, 100) : 0;
     $('monthDone').textContent = state.totalCardsDone + state.cardsDoneToday; $('monthTotal').textContent = state.totalCards;
@@ -112,6 +112,11 @@ function startApp() {
     }
     fillForm(); recalc(); buildSchedule(); renderSchedule(); updateStats(); restoreTimer(); showWork(); saveState();
 }
+function setStartTimeNow() {
+    const d = new Date();
+    $('startTime').value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function resetProgress() {
     if (!confirm('Сбросить весь прогресс?')) return;
     clearInterval(tickInterval); clearState(); Object.assign(state, { ...state, ...settings(), baseNorm: 0, carryover: 0, cardsPerDayNorm: 0, currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: false, lastTickAt: null });
@@ -206,11 +211,13 @@ window.addEventListener('load', () => {
     loadTheme();
     const saved = loadState();
     if (saved?.appStarted) {
-        Object.assign(state, saved); fillForm(); recalc();
+        Object.assign(state, saved);
+        if (!state.startTime) state.startTime = '09:00';
+        fillForm(); recalc();
         if (!state.schedule?.length) buildSchedule();
         renderSchedule(); showWork(); restoreTimer(); updateStats();
     } else showSetup();
 });
 window.startApp = startApp; window.resetProgress = resetProgress; window.backToSettings = backToSettings;
 window.startWork = startWork; window.pauseWork = pauseWork; window.skipBreak = skipBreak; window.endDay = endDay;
-window.toggleTheme = toggleTheme; window.setTimerMode = setTimerMode;
+window.toggleTheme = toggleTheme; window.setTimerMode = setTimerMode; window.setStartTimeNow = setStartTimeNow;
