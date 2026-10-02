@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,140 +7,121 @@
     <title>Планировщик карточек v4</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-    <div class="container">
+<div class="container">
 
-        <section id="setupScreen" class="screen">
-            <header class="topbar">
-                <div>
-                    <div class="eyebrow">ПЛАНИРОВЩИК</div>
-                    <h1 class="title">📋 Карточки</h1>
-                </div>
+    <section id="setupScreen" class="screen">
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">ПЛАНИРОВЩИК</div>
+                <h1 class="title">📋 Карточки</h1>
+            </div>
+            <button class="icon-btn" onclick="toggleTheme()" aria-label="Переключить тему">◐</button>
+        </header>
+
+        <div class="card hero-card">
+            <div>
+                <div class="eyebrow">НОВАЯ СЕССИЯ</div>
+                <h2>Настрой рабочий месяц</h2>
+                <p class="muted">Норма, переносы и расписание будут пересчитываться автоматически.</p>
+            </div>
+            <div class="settings-grid">
+                <div class="field"><label for="totalCards">Всего карточек за месяц</label><input type="number" id="totalCards" value="28000" min="1"></div>
+                <div class="field"><label for="daysInMonth">Дней в месяце</label><input type="number" id="daysInMonth" value="31" min="1" max="365"></div>
+                <div class="field"><label for="hoursPerDay">Часов работы в день</label><input type="number" id="hoursPerDay" value="8" min="1" max="24"></div>
+                <div class="field"><label for="timePerCard">Секунд на карточку</label><input type="number" id="timePerCard" value="15" min="15"></div>
+                <div class="field"><label for="breakDuration">Перерыв, минут</label><input type="number" id="breakDuration" value="10" min="1"></div>
+                <div class="field"><label for="lunchDuration">Обед, минут</label><input type="number" id="lunchDuration" value="60" min="0"></div>
+                <div class="field start-time-field"><label for="startTime">🕘 Начало рабочего дня</label><div class="time-input-row"><input type="time" id="startTime" value="09:00"><button type="button" class="time-now" onclick="setStartTimeNow()">Сейчас</button></div><small>Расписание строится от этого времени</small></div>
+            </div>
+            <div class="actions">
+                <button class="btn primary" onclick="startApp()">🚀 Начать / продолжить</button>
+                <button class="btn secondary" onclick="resetProgress()">🔄 Сбросить прогресс</button>
+            </div>
+        </div>
+
+        <div class="tip">⌨️ <b>Space</b> — старт/пауза · <b>S</b> — пропустить перерыв · <b>E</b> — завершить день</div>
+    </section>
+
+    <section id="workScreen" class="screen hidden">
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">РАБОЧИЙ МЕСЯЦ</div>
+                <h1 class="title">День <span id="dayNumber">1</span> <span class="muted">/ <span id="dayTotal">31</span></span></h1>
+            </div>
+            <div class="top-actions">
+                <span id="carryBadge" class="badge hidden"></span>
                 <button class="icon-btn" onclick="toggleTheme()" aria-label="Переключить тему">◐</button>
-            </header>
+            </div>
+        </header>
 
-            <div class="card hero-card">
+        <div class="dashboard card">
+            <div class="dashboard-head">
                 <div>
-                    <div class="eyebrow">НОВАЯ СЕССИЯ</div>
-                    <h2>Настрой рабочий месяц</h2>
-                    <p class="muted">Норма, переносы и расписание будут пересчитываться автоматически.</p>
+                    <div class="eyebrow">СЕГОДНЯ</div>
+                    <div class="big-number"><span id="statDone">0</span><span class="slash"> / </span><span id="statNorm">0</span></div>
+                    <div class="muted">карточек выполнено · чистое время работы</div>
                 </div>
-                <div class="settings-grid">
-                    <div class="field"><label for="totalCards">Всего карточек за месяц</label><input type="number"
-                            id="totalCards" value="28000" min="1"></div>
-                    <div class="field"><label for="daysInMonth">Дней в месяце</label><input type="number"
-                            id="daysInMonth" value="31" min="1" max="365"></div>
-                    <div class="field"><label for="hoursPerDay">Часов работы в день</label><input type="number"
-                            id="hoursPerDay" value="8" min="1" max="24"></div>
-                    <div class="field"><label for="timePerCard">Секунд на карточку</label><input type="number"
-                            id="timePerCard" value="15" min="15"></div>
-                    <div class="field"><label for="breakDuration">Перерыв, минут</label><input type="number"
-                            id="breakDuration" value="10" min="1"></div>
-                    <div class="field"><label for="lunchDuration">Обед, минут</label><input type="number"
-                            id="lunchDuration" value="60" min="0"></div>
-                    <div class="field start-time-field"><label for="startTime">🕘 Начало рабочего дня</label>
-                        <div class="time-input-row"><input type="time" id="startTime" value="09:00"><button
-                                type="button" class="time-now" onclick="setStartTimeNow()">Сейчас</button></div>
-                        <small>Расписание строится от этого времени</small>
-                    </div>
-                </div>
-                <div class="actions">
-                    <button class="btn primary" onclick="startApp()">🚀 Начать / продолжить</button>
-                    <button class="btn secondary" onclick="resetProgress()">🔄 Сбросить прогресс</button>
-                </div>
+                <div class="percent" id="dayPercent">0%</div>
             </div>
-
-            <div class="tip">⌨️ <b>Space</b> — старт/пауза · <b>S</b> — пропустить перерыв · <b>E</b> — завершить день
+            <div class="progress-track large"><div id="progressFill" class="progress-fill"></div></div>
+            <div class="metric-grid">
+                <div class="metric"><span>Осталось</span><strong id="statLeft">0</strong></div>
+                <div class="metric"><span>Текущий темп</span><strong id="statPerHour">0/ч</strong></div>
+                <div class="metric"><span>Нужно</span><strong id="requiredPerHour">0/ч</strong></div>
+                <div class="metric"><span>Окончание по плану</span><strong id="finishForecast">—</strong></div>
             </div>
-        </section>
+        </div>
 
-        <section id="workScreen" class="screen hidden">
-            <header class="topbar">
-                <div>
-                    <div class="eyebrow">РАБОЧИЙ МЕСЯЦ</div>
-                    <h1 class="title">День <span id="dayNumber">1</span> <span class="muted">/ <span
-                                id="dayTotal">31</span></span></h1>
-                </div>
-                <div class="top-actions">
-                    <span id="carryBadge" class="badge hidden"></span>
-                    <button class="icon-btn" onclick="toggleTheme()" aria-label="Переключить тему">◐</button>
-                </div>
-            </header>
-
-            <div class="dashboard card">
-                <div class="dashboard-head">
-                    <div>
-                        <div class="eyebrow">СЕГОДНЯ</div>
-                        <div class="big-number"><span id="statDone">0</span><span class="slash"> / </span><span
-                                id="statNorm">0</span></div>
-                        <div class="muted">карточек выполнено · чистое время работы</div>
-                    </div>
-                    <div class="percent" id="dayPercent">0%</div>
-                </div>
-                <div class="progress-track large">
-                    <div id="progressFill" class="progress-fill"></div>
-                </div>
-                <div class="metric-grid">
-                    <div class="metric"><span>Осталось</span><strong id="statLeft">0</strong></div>
-                    <div class="metric"><span>Текущий темп</span><strong id="statPerHour">0/ч</strong></div>
-                    <div class="metric"><span>Нужно</span><strong id="requiredPerHour">0/ч</strong></div>
-                    <div class="metric"><span>Окончание по плану</span><strong id="finishForecast">—</strong></div>
-                </div>
+        <div class="month-grid">
+            <div class="card compact">
+                <div class="section-title">📈 Месяц</div>
+                <div class="month-progress"><span id="monthProgressFill"></span></div>
+                <div class="month-line"><strong id="monthDone">0</strong> / <span id="monthTotal">0</span></div>
+                <div class="muted" id="monthDetails">Осталось —</div>
             </div>
-
-            <div class="month-grid">
-                <div class="card compact">
-                    <div class="section-title">📈 Месяц</div>
-                    <div class="month-progress"><span id="monthProgressFill"></span></div>
-                    <div class="month-line"><strong id="monthDone">0</strong> / <span id="monthTotal">0</span></div>
-                    <div class="muted" id="monthDetails">Осталось —</div>
-                </div>
-                <div class="card compact">
-                    <div class="section-title">🎯 Баланс</div>
-                    <div class="balance-value" id="balanceText">—</div>
-                    <div class="muted" id="balanceSubtext">—</div>
-                </div>
+            <div class="card compact">
+                <div class="section-title">🎯 Баланс</div>
+                <div class="balance-value" id="balanceText">—</div>
+                <div class="muted" id="balanceSubtext">—</div>
             </div>
+        </div>
 
-            <div class="card timer-card">
-                <div class="status" id="statusText">Готов к работе</div>
-                <div class="timer-mode">
-                    <button id="modeElapsed" class="mode active" onclick="setTimerMode('elapsed')">Прошло</button>
-                    <button id="modeRemaining" class="mode" onclick="setTimerMode('remaining')">Осталось</button>
-                </div>
-                <div class="timer" id="timer">00:00:00</div>
-                <div class="timer-sub" id="blockInfo">Рабочий блок</div>
-                <div class="actions centered">
-                    <button id="btnStart" class="btn primary" onclick="startWork()">▶ Старт</button>
-                    <button id="btnPause" class="btn secondary hidden" onclick="pauseWork()">⏸ Пауза</button>
-                    <button id="btnSkip" class="btn secondary hidden" onclick="skipBreak()">⏩ Пропустить</button>
-                    <button id="btnEndDay" class="btn danger" onclick="endDay()">🏁 Завершить день</button>
-                </div>
+        <div class="card timer-card">
+            <div class="status" id="statusText">Готов к работе</div>
+            <div class="timer-mode">
+                <button id="modeElapsed" class="mode active" onclick="setTimerMode('elapsed')">Прошло</button>
+                <button id="modeRemaining" class="mode" onclick="setTimerMode('remaining')">Осталось</button>
             </div>
-
-            <div class="card">
-                <div class="section-head">
-                    <h2 class="section-title">Расписание</h2><span class="muted" id="scheduleSummary"></span>
-                </div>
-                <div id="scheduleList" class="schedule"></div>
+            <div class="timer" id="timer">00:00:00</div>
+            <div class="timer-sub" id="blockInfo">Рабочий блок</div>
+            <div class="actions centered">
+                <button id="btnStart" class="btn primary" onclick="startWork()">▶ Старт</button>
+                <button id="btnPause" class="btn secondary hidden" onclick="pauseWork()">⏸ Пауза</button>
+                <button id="btnSkip" class="btn secondary hidden" onclick="skipBreak()">⏩ Пропустить</button>
+                <button id="btnEndDay" class="btn danger" onclick="endDay()">🏁 Завершить день</button>
             </div>
+        </div>
 
-            <div class="card">
-                <div class="section-head">
-                    <h2 class="section-title">📊 История</h2>
-                    <span class="muted">последние дни</span>
-                </div>
-                <div id="historyList" class="history"></div>
+        <div class="card">
+            <div class="section-head"><h2 class="section-title">Расписание</h2><span class="muted" id="scheduleSummary"></span></div>
+            <div id="scheduleList" class="schedule"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2 class="section-title">📊 История</h2>
+                <span class="muted">последние дни</span>
             </div>
+            <div id="historyList" class="history"></div>
+        </div>
 
-            <div class="card settings-footer">
-                <button class="btn secondary" onclick="backToSettings()">← Настройки</button>
-            </div>
-        </section>
-    </div>
+        <div class="card settings-footer">
+            <button class="btn secondary" onclick="backToSettings()">← Настройки</button>
+        </div>
+    </section>
+</div>
 
-    <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
-
 </html>

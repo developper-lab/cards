@@ -5,6 +5,7 @@ const state = {
     breakDuration: 10, lunchDuration: 60, startTime: '09:00',
     baseNorm: 0, carryover: 0, cardsPerDayNorm: 0,
     currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0,
+    cardsManualAdjustment: 0,
     status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0,
     schedule: [], history: [], appStarted: false, lastTickAt: null, timerMode: 'elapsed'
 };
@@ -72,6 +73,20 @@ function currentRequiredPerHour() {
     const remainingSec = Math.max(1, state.hoursPerDay * 3600 - workSecondsToday());
     return Math.ceil(remaining / (remainingSec / 3600));
 }
+function setCardsDoneToday(value) {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    const timerCards = Math.floor(state.totalWorkSecondsToday / state.timePerCard);
+    state.cardsManualAdjustment = n - timerCards;
+    state.cardsDoneToday = n;
+    renderManualCardsControl();
+    updateStats();
+}
+
+function renderManualCardsControl() {
+    const el = $('manualCardsDone');
+    if (el && document.activeElement !== el) el.value = state.cardsDoneToday;
+}
+
 function updateStats() {
     const done = state.cardsDoneToday, norm = state.cardsPerDayNorm, left = Math.max(0, norm - done);
     const pct = norm ? clamp(done / norm * 100, 0, 100) : 0;
@@ -104,13 +119,30 @@ function renderHistory() {
     });
 }
 
+function injectManualCardsControl() {
+    const target = $('statDone')?.parentElement;
+    if (!target || $('manualCardsDone')) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;';
+    wrap.innerHTML = `<label for="manualCardsDone" class="muted" style="font-size:12px">Фактически сделано:</label><input id="manualCardsDone" type="number" min="0" step="1" style="width:110px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit"><button type="button" class="btn secondary" style="min-height:36px;padding:7px 11px;font-size:12px" onclick="applyCardsDone()">Исправить</button>`;
+    target.appendChild(wrap);
+    renderManualCardsControl();
+}
+
+function applyCardsDone() {
+    const el = $('manualCardsDone');
+    if (!el) return;
+    setCardsDoneToday(el.value);
+    saveState();
+}
+
 function startApp() {
     const s = settings(), saved = loadState();
     if (saved?.appStarted && match(saved, s)) { Object.assign(state, saved) }
     else {
-        Object.assign(state, s, { baseNorm: Math.ceil(s.totalCards / s.daysInMonth), carryover: 0, cardsPerDayNorm: Math.ceil(s.totalCards / s.daysInMonth), currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: true, lastTickAt: null });
+        Object.assign(state, s, { baseNorm: Math.ceil(s.totalCards / s.daysInMonth), carryover: 0, cardsPerDayNorm: Math.ceil(s.totalCards / s.daysInMonth), currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, cardsManualAdjustment: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: true, lastTickAt: null });
     }
-    fillForm(); recalc(); buildSchedule(); renderSchedule(); updateStats(); restoreTimer(); showWork(); saveState();
+    fillForm(); recalc(); buildSchedule(); renderSchedule(); showWork(); injectManualCardsControl(); updateStats(); restoreTimer(); saveState();
 }
 function setStartTimeNow() {
     const d = new Date();
@@ -119,7 +151,7 @@ function setStartTimeNow() {
 
 function resetProgress() {
     if (!confirm('Сбросить весь прогресс?')) return;
-    clearInterval(tickInterval); clearState(); Object.assign(state, { ...state, ...settings(), baseNorm: 0, carryover: 0, cardsPerDayNorm: 0, currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: false, lastTickAt: null });
+    clearInterval(tickInterval); clearState(); Object.assign(state, { ...state, ...settings(), baseNorm: 0, carryover: 0, cardsPerDayNorm: 0, currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, cardsManualAdjustment: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: false, lastTickAt: null });
     showSetup(); alert('Прогресс сброшен.');
 }
 function backToSettings() { clearInterval(tickInterval); if (['working', 'break', 'lunch'].includes(state.status)) state.status = 'paused'; saveState(); fillForm(); showSetup() }
@@ -143,7 +175,7 @@ function tick() {
     state.lastTickAt = now;
     if (state.status === 'working') {
         state.secondsIntoBlock += elapsed; state.totalWorkSecondsToday += elapsed;
-        state.cardsDoneToday = Math.floor(state.totalWorkSecondsToday / state.timePerCard);
+        state.cardsDoneToday = Math.max(0, Math.floor(state.totalWorkSecondsToday / state.timePerCard) + (state.cardsManualAdjustment || 0));
         if (state.secondsIntoBlock >= currentBlock().duration * 60) { state.secondsIntoBlock = 0; goNextBlock(); return }
     } else if (state.status === 'break' || state.status === 'lunch') {
         state.breakSecondsLeft -= elapsed; if (state.breakSecondsLeft <= 0) { state.breakSecondsLeft = 0; goNextBlock(); return }
@@ -192,7 +224,7 @@ function endDay() {
         clearState(); state.appStarted = false; showSetup(); return;
     }
     state.currentDay++; state.carryover = deficit; state.cardsPerDayNorm = state.baseNorm + deficit;
-    state.cardsDoneToday = 0; state.totalWorkSecondsToday = 0; state.secondsIntoBlock = 0; state.currentScheduleIndex = 0; state.status = 'idle'; state.schedule = []; state.lastTickAt = null;
+    state.cardsDoneToday = 0; state.totalWorkSecondsToday = 0; state.cardsManualAdjustment = 0; state.secondsIntoBlock = 0; state.currentScheduleIndex = 0; state.status = 'idle'; state.schedule = []; state.lastTickAt = null;
     recalc(); buildSchedule(); renderSchedule(); renderTimer(); updateButtons(); updateStats(); saveState();
 }
 function toggleTheme() {
@@ -213,11 +245,12 @@ window.addEventListener('load', () => {
     if (saved?.appStarted) {
         Object.assign(state, saved);
         if (!state.startTime) state.startTime = '09:00';
+        if (!Number.isFinite(state.cardsManualAdjustment)) state.cardsManualAdjustment = 0;
         fillForm(); recalc();
         if (!state.schedule?.length) buildSchedule();
-        renderSchedule(); showWork(); restoreTimer(); updateStats();
+        renderSchedule(); showWork(); injectManualCardsControl(); restoreTimer(); updateStats();
     } else showSetup();
 });
 window.startApp = startApp; window.resetProgress = resetProgress; window.backToSettings = backToSettings;
-window.startWork = startWork; window.pauseWork = pauseWork; window.skipBreak = skipBreak; window.endDay = endDay;
+window.applyCardsDone = applyCardsDone; window.startWork = startWork; window.pauseWork = pauseWork; window.skipBreak = skipBreak; window.endDay = endDay;
 window.toggleTheme = toggleTheme; window.setTimerMode = setTimerMode; window.setStartTimeNow = setStartTimeNow;
