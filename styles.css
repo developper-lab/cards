@@ -1,295 +1,548 @@
 * {
     box-sizing: border-box;
     margin: 0;
-    padding: 0;
+    padding: 0
+}
+
+:root {
+    --bg: #f4f1ec;
+    --surface: #fbf9f5;
+    --surface2: #f0ece5;
+    --border: #e1dbd1;
+    --text: #2f2c28;
+    --muted: #81786d;
+    --green: #5b6b53;
+    --green2: #87967d;
+    --red: #b56a5c;
+    --gold: #c9a961;
+    --shadow: 0 10px 30px rgba(67, 58, 47, .05)
+}
+
+[data-theme="dark"] {
+    --bg: #24231f;
+    --surface: #302f2a;
+    --surface2: #3a3832;
+    --border: #49463e;
+    --text: #eee9df;
+    --muted: #aaa295;
+    --green: #8fa487;
+    --green2: #a7b79e;
+    --red: #d18475;
+    --gold: #d6ba78;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .18)
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f4f1ec;
-    color: #2f2c28;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
     padding: 24px 20px;
-    line-height: 1.55;
+    line-height: 1.5;
     font-size: 15px;
+    transition: .2s
 }
 
-/*  Контейнер  */
 .container {
     width: 100%;
-    max-width: 860px;
+    max-width: 900px;
+    margin: auto;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 16px
 }
 
-/*  Экраны  */
 .screen {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 16px
 }
 
 .hidden {
-    display: none !important;
+    display: none !important
 }
 
-/*  Заголовки  */
-.title {
-    font-size: 22px;
-    font-weight: 600;
-    color: #2f2c28;
+.topbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    letter-spacing: -0.01em;
+    justify-content: space-between;
+    gap: 16px
 }
 
-.subtitle {
-    font-size: 15px;
-    font-weight: 600;
-    color: #6b635a;
-    margin-bottom: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px
 }
 
-/*  Карточка  */
-.card {
-    background: #fbf9f5;
-    border: 1px solid #e3ddd3;
+.eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .13em;
+    color: var(--muted);
+    margin-bottom: 4px
+}
+
+.title {
+    font-size: 24px;
+    font-weight: 650;
+    letter-spacing: -.025em
+}
+
+.muted {
+    color: var(--muted)
+}
+
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 18px
 }
 
-/*  Поля формы  */
-.fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: var(--shadow)
+}
+
+.hero-card {
+    gap: 20px
+}
+
+.hero-card h2 {
+    font-size: 22px;
+    margin-bottom: 5px
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px
 }
 
 .field {
     display: flex;
-    flex-direction: column;
-    flex: 1 1 190px;
-    min-width: 190px;
+    flex-direction: column
 }
 
 .field label {
-    font-size: 13px;
-    color: #7a7167;
-    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px
 }
 
 .field input {
     width: 100%;
-    padding: 10px 12px;
-    border-radius: 7px;
-    border: 1px solid #ddd6cb;
-    background: #ffffff;
-    color: #2f2c28;
-    font-size: 15px;
-    font-family: inherit;
-    transition: border-color 0.15s;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit
 }
 
 .field input:focus {
-    outline: none;
-    border-color: #a89e8e;
+    outline: 2px solid color-mix(in srgb, var(--green) 30%, transparent);
+    border-color: var(--green)
 }
 
-/*  Заметка  */
-.note {
-    font-size: 13px;
-    color: #948b7f;
-    margin-top: 14px;
-    line-height: 1.5;
-}
-
-/*  Кнопки  */
 .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 18px;
+    gap: 9px
+}
+
+.actions.centered {
+    justify-content: center
 }
 
 .btn {
-    flex: 1 1 140px;
-    min-width: 140px;
-    padding: 11px 18px;
-    border-radius: 7px;
     border: 1px solid transparent;
-    font-weight: 500;
-    font-size: 14px;
-    font-family: inherit;
+    border-radius: 9px;
+    padding: 11px 17px;
+    font: 600 14px inherit;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: .15s;
+    min-height: 43px
 }
 
 .btn.primary {
-    background: #5b6b53;
-    color: #f4f1ec;
+    background: var(--green);
+    color: #fff
 }
 
 .btn.primary:hover {
-    background: #4d5b46;
+    filter: brightness(.94)
 }
 
 .btn.secondary {
-    background: #ece7de;
-    color: #4a453d;
-    border-color: #ddd6cb;
+    background: var(--surface2);
+    border-color: var(--border);
+    color: var(--text)
 }
 
 .btn.secondary:hover {
-    background: #e2dbcf;
+    filter: brightness(.97)
 }
 
 .btn.danger {
-    background: #b56a5c;
-    color: #fbf9f5;
+    background: var(--red);
+    color: #fff
 }
 
-.btn.danger:hover {
-    background: #a15b4e;
-}
-
-/*  Статистика  */
-.stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.stat {
-    flex: 1 1 140px;
-    background: #fbf9f5;
-    border: 1px solid #e3ddd3;
-    border-radius: 10px;
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.stat-value {
-    font-size: 22px;
-    font-weight: 600;
-    color: #3f4a3a;
-    font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
+.tip {
     font-size: 12px;
-    color: #7a7167;
-    margin-top: 6px;
-    text-align: center;
+    color: var(--muted);
+    text-align: center
 }
 
-/*  Прогресс-бар  */
-.progress-bar {
-    width: 100%;
-    height: 8px;
-    background: #ece7de;
-    border-radius: 4px;
-    overflow: hidden;
+.badge {
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #f6f0e2;
+    color: #876d35;
+    font-size: 11px;
+    font-weight: 700
+}
+
+.dashboard {
+    padding: 22px
+}
+
+.dashboard-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    margin-bottom: 18px
+}
+
+.big-number {
+    font-size: 42px;
+    font-weight: 650;
+    letter-spacing: -.04em;
+    line-height: 1
+}
+
+.slash {
+    color: var(--border)
+}
+
+.percent {
+    font-size: 30px;
+    font-weight: 650;
+    color: var(--green)
+}
+
+.progress-track {
+    height: 9px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden
+}
+
+.progress-track.large {
+    height: 11px
 }
 
 .progress-fill {
     height: 100%;
     width: 0;
-    background: #87967d;
-    transition: width 0.3s;
+    background: var(--green2);
+    border-radius: 99px;
+    transition: width .35s
 }
 
-/*  Таймер  */
-.status {
-    text-align: center;
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 16px
+}
+
+.metric {
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface2)
+}
+
+.metric span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 4px
+}
+
+.metric strong {
+    font-size: 16px
+}
+
+.month-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px
+}
+
+.compact {
+    padding: 17px
+}
+
+.section-title {
     font-size: 14px;
-    color: #7a7167;
-    margin-bottom: 6px;
+    font-weight: 700
 }
 
-.timer {
-    font-size: 52px;
-    font-weight: 500;
-    text-align: center;
-    color: #2f2c28;
-    font-variant-numeric: tabular-nums;
-    margin: 16px 0 20px;
-    letter-spacing: 0.02em;
-}
-
-.timer.break {
-    color: #a8843e;
-}
-
-.timer.lunch {
-    color: #5b6b53;
-}
-
-/*  Расписание  */
-.schedule {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.schedule-item {
+.section-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 14px;
-    border-radius: 7px;
-    font-size: 14px;
-    background: #f4f1ec;
-    border-left: 3px solid #ddd6cb;
-    color: #4a453d;
+    margin-bottom: 12px
+}
+
+.month-progress {
+    height: 7px;
+    background: var(--surface2);
+    border-radius: 99px;
+    margin: 14px 0 9px;
+    overflow: hidden
+}
+
+.month-progress span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: var(--green2);
+    transition: .3s
+}
+
+.month-line {
+    font-size: 20px
+}
+
+.balance-value {
+    font-size: 23px;
+    font-weight: 650;
+    margin: 11px 0 2px
+}
+
+.balance-value.good {
+    color: var(--green)
+}
+
+.balance-value.warn {
+    color: var(--red)
+}
+
+.timer-card {
+    text-align: center;
+    padding: 23px
+}
+
+.status {
+    color: var(--muted);
+    font-size: 13px
+}
+
+.timer-mode {
+    display: inline-flex;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    margin-top: 9px
+}
+
+.mode {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font: 600 11px inherit
+}
+
+.mode.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .06)
+}
+
+.timer {
+    font-size: 56px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+    margin: 10px 0 0
+}
+
+.timer.break {
+    color: var(--gold)
+}
+
+.timer.lunch {
+    color: var(--green)
+}
+
+.timer-sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 4px
+}
+
+.schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 6px
+}
+
+.schedule-item {
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: var(--surface2);
+    border-left: 3px solid var(--border);
+    font-size: 13px
 }
 
 .schedule-item.work {
-    background: #eef1ea;
-    border-left-color: #87967d;
+    border-left-color: var(--green2)
 }
 
 .schedule-item.break {
-    background: #f6f0e2;
-    border-left-color: #c9a961;
+    border-left-color: var(--gold)
 }
 
 .schedule-item.lunch {
-    background: #eaf0e8;
-    border-left-color: #5b6b53;
+    border-left-color: var(--green)
 }
 
 .schedule-item.active {
-    outline: 1.5px solid #a89e8e;
-    outline-offset: -1px;
+    outline: 2px solid color-mix(in srgb, var(--green) 30%, transparent);
+    background: color-mix(in srgb, var(--green) 8%, var(--surface2))
 }
 
-/*  Адаптив  */
-@media (max-width: 500px) {
+.schedule-icon {
+    font-size: 14px
+}
+
+.schedule-time {
+    font-variant-numeric: tabular-nums;
+    color: var(--muted)
+}
+
+.history {
+    display: flex;
+    flex-direction: column;
+    gap: 6px
+}
+
+.history-row {
+    display: grid;
+    grid-template-columns: 65px 1fr 90px 65px;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 12px
+}
+
+.history-bar {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 99px;
+    overflow: hidden
+}
+
+.history-bar span {
+    display: block;
+    height: 100%;
+    background: var(--green2)
+}
+
+.settings-footer {
+    padding: 12px
+}
+
+.settings-footer .btn {
+    width: 100%
+}
+
+@media(max-width:680px) {
     body {
-        padding: 16px 12px;
+        padding: 16px 12px
     }
 
+    .settings-grid {
+        grid-template-columns: repeat(2, 1fr)
+    }
+
+    .metric-grid {
+        grid-template-columns: repeat(2, 1fr)
+    }
+
+    .month-grid {
+        grid-template-columns: 1fr
+    }
+
+    .history-row {
+        grid-template-columns: 50px 1fr 70px
+    }
+
+    .history-row .history-deficit {
+        display: none
+    }
+}
+
+@media(max-width:480px) {
     .title {
-        font-size: 19px;
+        font-size: 20px
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr
+    }
+
+    .dashboard-head {
+        align-items: center
+    }
+
+    .big-number {
+        font-size: 34px
+    }
+
+    .percent {
+        font-size: 23px
     }
 
     .timer {
-        font-size: 38px;
+        font-size: 40px
     }
 
     .btn {
-        flex: 1 1 100%;
+        flex: 1 1 100%
+    }
+
+    .schedule-item {
+        grid-template-columns: 22px 1fr
+    }
+
+    .schedule-time {
+        grid-column: 2
+    }
+
+    .topbar {
+        align-items: flex-start
     }
 }

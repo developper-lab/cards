@@ -1,497 +1,216 @@
-//  КЛЮЧ ХРАНИЛИЩА 
-// v3 — новая логика, старый стейт не помешает
-const STORAGE_KEY = 'cards_planner_state_v3';
+const STORAGE_KEY = 'cards_planner_state_v4';
 
-//  СОСТОЯНИЕ 
 const state = {
-    // Настройки
-    totalCards: 28000,
-    daysInMonth: 31,
-    hoursPerDay: 8,
-    timePerCard: 15,
-    breakDuration: 10,
-    lunchDuration: 60,
-
-    // План
-    baseNorm: 0,          // фиксированная дневная норма = totalCards / daysInMonth
-    carryover: 0,         // дефицит, перенесённый с прошлого дня
-    cardsPerDayNorm: 0,   // baseNorm + carryover
-
-    // Прогресс
-    currentDay: 1,
-    cardsDoneToday: 0,
-    totalCardsDone: 0,    // всего сделано за месяц
-
-    // Таймер
-    status: 'idle',
-    secondsIntoBlock: 0,
-    totalWorkSecondsToday: 0,
-    breakSecondsLeft: 0,
-    currentScheduleIndex: 0,
-    schedule: [],
-
-    appStarted: false
+    totalCards: 28000, daysInMonth: 31, hoursPerDay: 8, timePerCard: 15,
+    breakDuration: 10, lunchDuration: 60,
+    baseNorm: 0, carryover: 0, cardsPerDayNorm: 0,
+    currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0,
+    status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0,
+    schedule: [], history: [], appStarted: false, lastTickAt: null, timerMode: 'elapsed'
 };
 
 let tickInterval = null;
 
-//  УТИЛИТЫ 
-function formatTime(totalMinutes) {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
+const $ = id => document.getElementById(id);
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+function formatDuration(sec) { sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
+function formatTime(min) { return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}` }
+function settings() { return { totalCards: +$('totalCards').value || 1, daysInMonth: +$('daysInMonth').value || 1, hoursPerDay: +$('hoursPerDay').value || 8, timePerCard: Math.max(15, +$('timePerCard').value || 15), breakDuration: Math.max(1, +$('breakDuration').value || 10), lunchDuration: Math.max(0, +$('lunchDuration').value || 0) } }
+function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch (e) { } }
+function loadState() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch (e) { return null } }
+function clearState() { localStorage.removeItem(STORAGE_KEY) }
+function match(a, b) { return Object.keys(b).every(k => a[k] === b[k]) }
+function fillForm() { for (const k of ['totalCards', 'daysInMonth', 'hoursPerDay', 'timePerCard', 'breakDuration', 'lunchDuration']) $(k).value = state[k] }
+function showWork() { $('setupScreen').classList.add('hidden'); $('workScreen').classList.remove('hidden') }
+function showSetup() { $('workScreen').classList.add('hidden'); $('setupScreen').classList.remove('hidden') }
 
-function formatDuration(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function $(id) { return document.getElementById(id); }
-
-//  СОХРАНЕНИЕ / ЗАГРУЗКА 
-function saveState() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-        console.warn('Не удалось сохранить:', e);
-    }
-}
-
-function loadRawState() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function clearState() {
-    localStorage.removeItem(STORAGE_KEY);
-}
-
-//  ФОРМА 
-function readSettingsFromForm() {
-    return {
-        totalCards: +$('totalCards').value || 1,
-        daysInMonth: +$('daysInMonth').value || 1,
-        hoursPerDay: +$('hoursPerDay').value || 8,
-        timePerCard: Math.max(15, +$('timePerCard').value || 15),
-        breakDuration: +$('breakDuration').value || 10,
-        lunchDuration: +$('lunchDuration').value || 0
-    };
-}
-
-function fillFormFromState() {
-    $('totalCards').value = state.totalCards;
-    $('daysInMonth').value = state.daysInMonth;
-    $('hoursPerDay').value = state.hoursPerDay;
-    $('timePerCard').value = state.timePerCard;
-    $('breakDuration').value = state.breakDuration;
-    $('lunchDuration').value = state.lunchDuration;
-}
-
-function settingsMatch(a, b) {
-    return a.totalCards === b.totalCards &&
-        a.daysInMonth === b.daysInMonth &&
-        a.hoursPerDay === b.hoursPerDay &&
-        a.timePerCard === b.timePerCard &&
-        a.breakDuration === b.breakDuration &&
-        a.lunchDuration === b.lunchDuration;
-}
-
-//  ЭКРАНЫ 
-function showWorkScreen() {
-    $('setupScreen').classList.add('hidden');
-    $('workScreen').classList.remove('hidden');
-}
-
-function showSetupScreen() {
-    $('setupScreen').classList.remove('hidden');
-    $('workScreen').classList.add('hidden');
-}
-
-//  СТАРТ / НАЗАД / СБРОС 
-function startApp() {
-    const settings = readSettingsFromForm();
-    const saved = loadRawState();
-
-    // Если есть сохранённая сессия с теми же настройками — восстанавливаем
-    if (saved && saved.appStarted && settingsMatch(saved, settings)) {
-        Object.assign(state, saved);
-
-        // На всякий случай пересчитываем (на случай, если формат изменился)
-        if (!state.baseNorm) {
-            state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
-        }
-        state.cardsPerDayNorm = state.baseNorm + state.carryover;
-
-        showWorkScreen();
-        recalculateNorm();
-        if (!state.schedule || state.schedule.length === 0) {
-            buildSchedule();
-        }
-        renderSchedule();
-        updateStats();
-        resetTimer();
-        return;
-    }
-
-    // Иначе — новая сессия
-    Object.assign(state, settings);
+function recalc() {
     state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
-    state.carryover = 0;
-    state.cardsPerDayNorm = state.baseNorm;
-    state.currentDay = 1;
-    state.cardsDoneToday = 0;
-    state.totalCardsDone = 0;
-    state.status = 'idle';
-    state.secondsIntoBlock = 0;
-    state.totalWorkSecondsToday = 0;
-    state.breakSecondsLeft = 0;
-    state.currentScheduleIndex = 0;
-    state.schedule = [];
-    state.appStarted = true;
-
-    recalculateNorm();
-    buildSchedule();
-    renderSchedule();
-    updateStats();
-    resetTimer();
-    saveState();
-    showWorkScreen();
+    state.cardsPerDayNorm = Math.max(0, state.baseNorm + state.carryover);
+    $('dayNumber').textContent = state.currentDay; $('dayTotal').textContent = state.daysInMonth; $('statNorm').textContent = state.cardsPerDayNorm;
+    const badge = $('carryBadge');
+    if (state.carryover > 0) { badge.textContent = `↗ перенос +${state.carryover}`; badge.classList.remove('hidden') } else badge.classList.add('hidden');
 }
 
-// Возврат к настройкам БЕЗ потери прогресса
-function backToSettings() {
-    clearInterval(tickInterval);
-    if (state.status === 'working' || state.status === 'break' || state.status === 'lunch') {
-        state.status = 'paused';
-    }
-    saveState();
-    fillFormFromState();
-    showSetupScreen();
-}
-
-// Полный сброс прогресса (кнопка в настройках)
-function resetProgress() {
-    if (!confirm('Сбросить весь прогресс? Настройки останутся, но прогресс обнулится.')) return;
-    clearInterval(tickInterval);
-
-    const settings = readSettingsFromForm();
-    Object.assign(state, settings);
-    state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
-    state.carryover = 0;
-    state.cardsPerDayNorm = state.baseNorm;
-    state.currentDay = 1;
-    state.cardsDoneToday = 0;
-    state.totalCardsDone = 0;
-    state.status = 'idle';
-    state.secondsIntoBlock = 0;
-    state.totalWorkSecondsToday = 0;
-    state.breakSecondsLeft = 0;
-    state.currentScheduleIndex = 0;
-    state.schedule = [];
-    state.appStarted = false;
-
-    clearState();
-    alert('Прогресс сброшен.');
-}
-
-//  НОРМА 
-function recalculateNorm() {
-    state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
-    state.cardsPerDayNorm = state.baseNorm + state.carryover;
-
-    $('dayNumber').textContent = state.currentDay;
-    $('dayTotal').textContent = state.daysInMonth;
-    $('statNorm').textContent = state.cardsPerDayNorm;
-}
-
-//  ГРАФИК ДНЯ 
 function buildSchedule() {
-    const schedule = [];
-    const totalWorkMinutes = state.hoursPerDay * 60;
-    let currentMinute = 9 * 60;
-    let workedMinutes = 0;
-    let lunchUsed = false;
-
-    const workBlock = 90;
-    const shortBreak = state.breakDuration;
-
-    while (workedMinutes < totalWorkMinutes) {
-        const blockLength = Math.min(workBlock, totalWorkMinutes - workedMinutes);
-        schedule.push({
-            type: 'work',
-            startMin: currentMinute,
-            endMin: currentMinute + blockLength,
-            duration: blockLength
-        });
-        workedMinutes += blockLength;
-        currentMinute += blockLength;
-
-        if (workedMinutes >= totalWorkMinutes) break;
-
-        if (!lunchUsed && workedMinutes >= 4 * 60 && state.lunchDuration > 0) {
-            lunchUsed = true;
-            schedule.push({
-                type: 'lunch',
-                startMin: currentMinute,
-                endMin: currentMinute + state.lunchDuration,
-                duration: state.lunchDuration
-            });
-            currentMinute += state.lunchDuration;
+    const schedule = []; let current = 9 * 60, worked = 0, lunch = false;
+    while (worked < state.hoursPerDay * 60) {
+        const len = Math.min(90, state.hoursPerDay * 60 - worked);
+        schedule.push({ type: 'work', startMin: current, endMin: current + len, duration: len });
+        worked += len; current += len;
+        if (worked >= state.hoursPerDay * 60) break;
+        if (!lunch && worked >= 240 && state.lunchDuration > 0) {
+            lunch = true; schedule.push({ type: 'lunch', startMin: current, endMin: current + state.lunchDuration, duration: state.lunchDuration });
+            current += state.lunchDuration;
         } else {
-            schedule.push({
-                type: 'break',
-                startMin: currentMinute,
-                endMin: currentMinute + shortBreak,
-                duration: shortBreak
-            });
-            currentMinute += shortBreak;
+            schedule.push({ type: 'break', startMin: current, endMin: current + state.breakDuration, duration: state.breakDuration });
+            current += state.breakDuration;
         }
     }
-
-    state.schedule = schedule;
-    state.currentScheduleIndex = 0;
+    state.schedule = schedule; state.currentScheduleIndex = clamp(state.currentScheduleIndex, 0, Math.max(0, schedule.length - 1));
 }
 
 function renderSchedule() {
-    const list = $('scheduleList');
-    list.innerHTML = '';
+    const list = $('scheduleList'); list.innerHTML = '';
+    state.schedule.forEach((x, i) => {
+        const el = document.createElement('div'); el.className = `schedule-item ${x.type}${i === state.currentScheduleIndex ? ' active' : ''}`;
+        const icon = x.type === 'work' ? '💼' : x.type === 'break' ? '☕' : '🍽️';
+        const label = x.type === 'work' ? 'Работа' : x.type === 'break' ? 'Перерыв' : 'Обед';
+        el.innerHTML = `<span class="schedule-icon">${icon}</span><span><b>${label}</b><br><small>${x.duration} мин.</small></span><span class="schedule-time">${formatTime(x.startMin)} — ${formatTime(x.endMin)}</span>`;
+        list.appendChild(el);
+    });
+    const workBlocks = state.schedule.filter(x => x.type === 'work').length;
+    $('scheduleSummary').textContent = `${workBlocks} рабочих блоков`;
+}
 
-    state.schedule.forEach((item, i) => {
-        const div = document.createElement('div');
-        div.className = 'schedule-item ' + item.type;
-        if (i === state.currentScheduleIndex) div.classList.add('active');
-
-        let label = '💼 Работа';
-        if (item.type === 'break') label = '☕ Перерыв';
-        if (item.type === 'lunch') label = '🍽 Обед';
-
-        div.innerHTML = `
-      <span>${label}</span>
-      <span>${formatTime(item.startMin)} — ${formatTime(item.endMin)}</span>
-    `;
-        list.appendChild(div);
+function currentBlock() { return state.schedule[state.currentScheduleIndex] }
+function workSecondsToday() { return state.totalWorkSecondsToday }
+function currentRequiredPerHour() {
+    const remaining = Math.max(0, state.cardsPerDayNorm - state.cardsDoneToday);
+    const remainingSec = Math.max(1, state.hoursPerDay * 3600 - workSecondsToday());
+    return Math.ceil(remaining / (remainingSec / 3600));
+}
+function updateStats() {
+    const done = state.cardsDoneToday, norm = state.cardsPerDayNorm, left = Math.max(0, norm - done);
+    const pct = norm ? clamp(done / norm * 100, 0, 100) : 0;
+    $('statDone').textContent = done; $('statLeft').textContent = left; $('dayPercent').textContent = pct.toFixed(1) + '%';
+    $('progressFill').style.width = pct + '%';
+    const hours = workSecondsToday() / 3600;
+    const speed = hours > 0 ? Math.floor(done / hours) : 0;
+    $('statPerHour').textContent = speed + ' /ч'; $('requiredPerHour').textContent = currentRequiredPerHour() + ' /ч';
+    const remainingCards = left, secPerCard = state.timePerCard;
+    const forecastSec = hours > 0 ? workSecondsToday() + remainingCards * secPerCard : remainingCards * secPerCard;
+    const now = new Date(Date.now() + Math.max(0, forecastSec) * 1000);
+    $('finishForecast').textContent = done >= norm ? '✓ Готово' : now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const monthLeft = Math.max(0, state.totalCards - state.totalCardsDone - state.cardsDoneToday);
+    const monthPct = state.totalCards ? clamp((state.totalCardsDone + state.cardsDoneToday) / state.totalCards * 100, 0, 100) : 0;
+    $('monthDone').textContent = state.totalCardsDone + state.cardsDoneToday; $('monthTotal').textContent = state.totalCards;
+    $('monthProgressFill').style.width = monthPct + '%'; $('monthDetails').textContent = `Осталось ${monthLeft.toLocaleString('ru-RU')} · ${monthPct.toFixed(1)}%`;
+    const balance = (state.cardsDoneToday - state.cardsPerDayNorm);
+    $('balanceText').textContent = balance >= 0 ? `+${balance} карточек` : `${balance} карточек`;
+    $('balanceText').className = 'balance-value ' + (balance >= 0 ? 'good' : 'warn');
+    $('balanceSubtext').textContent = balance >= 0 ? 'Запас относительно нормы' : 'Нужно добрать до нормы';
+    renderHistory(); saveState();
+}
+function renderHistory() {
+    const list = $('historyList'); list.innerHTML = '';
+    const rows = state.history.slice(-7).reverse();
+    if (!rows.length) { list.innerHTML = '<div class="muted">История появится после завершения первого дня.</div>'; return }
+    rows.forEach(x => {
+        const pct = x.norm ? clamp(x.done / x.norm * 100, 0, 100) : 0;
+        const row = document.createElement('div'); row.className = 'history-row';
+        row.innerHTML = `<b>День ${x.day}</b><div class="history-bar"><span style="width:${pct}%"></span></div><span>${x.done} / ${x.norm}</span><span class="history-deficit">${x.done >= x.norm ? '✓' : `−${x.norm - x.done}`}</span>`;
+        list.appendChild(row);
     });
 }
 
-//  ТАЙМЕР 
-function resetTimer() {
-    clearInterval(tickInterval);
-
-    $('timer').textContent = formatDuration(state.secondsIntoBlock || 0);
-    $('timer').className = 'timer';
-    $('statusText').textContent = state.totalWorkSecondsToday > 0
-        ? 'Продолжить работу'
-        : 'Готов к работе';
-
-    $('btnStart').classList.remove('hidden');
-    $('btnPause').classList.add('hidden');
-    $('btnSkip').classList.add('hidden');
+function startApp() {
+    const s = settings(), saved = loadState();
+    if (saved?.appStarted && match(saved, s)) { Object.assign(state, saved) }
+    else {
+        Object.assign(state, s, { baseNorm: Math.ceil(s.totalCards / s.daysInMonth), carryover: 0, cardsPerDayNorm: Math.ceil(s.totalCards / s.daysInMonth), currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: true, lastTickAt: null });
+    }
+    fillForm(); recalc(); buildSchedule(); renderSchedule(); updateStats(); restoreTimer(); showWork(); saveState();
 }
-
-function getCurrentBlockSeconds() {
-    const item = state.schedule[state.currentScheduleIndex];
-    if (!item) return 90 * 60;
-    return item.duration * 60;
+function resetProgress() {
+    if (!confirm('Сбросить весь прогресс?')) return;
+    clearInterval(tickInterval); clearState(); Object.assign(state, { ...state, ...settings(), baseNorm: 0, carryover: 0, cardsPerDayNorm: 0, currentDay: 1, cardsDoneToday: 0, totalCardsDone: 0, totalWorkSecondsToday: 0, status: 'idle', secondsIntoBlock: 0, breakSecondsLeft: 0, currentScheduleIndex: 0, schedule: [], history: [], appStarted: false, lastTickAt: null });
+    showSetup(); alert('Прогресс сброшен.');
 }
+function backToSettings() { clearInterval(tickInterval); if (['working', 'break', 'lunch'].includes(state.status)) state.status = 'paused'; saveState(); fillForm(); showSetup() }
 
-function startWork() {
-    state.status = 'working';
-    $('statusText').textContent = '💼 Работаем';
-    $('timer').className = 'timer';
-    $('btnStart').classList.add('hidden');
-    $('btnPause').classList.remove('hidden');
-    $('btnSkip').classList.add('hidden');
-
-    clearInterval(tickInterval);
-    tickInterval = setInterval(() => {
-        state.secondsIntoBlock++;
-        state.totalWorkSecondsToday++;
-
+function renderTimer() {
+    const block = currentBlock(); if (!block) return;
+    let value = state.status === 'working' ? state.secondsIntoBlock : state.status === 'break' || state.status === 'lunch' ? state.breakSecondsLeft : state.secondsIntoBlock;
+    if (state.timerMode === 'remaining' && state.status === 'working') value = block.duration * 60 - state.secondsIntoBlock;
+    $('timer').textContent = formatDuration(value); $('timer').className = 'timer ' + (state.status === 'break' ? 'break' : state.status === 'lunch' ? 'lunch' : '');
+    $('blockInfo').textContent = `${block.type === 'work' ? 'Рабочий блок' : block.type === 'break' ? 'Перерыв' : 'Обед'} · ${formatTime(block.startMin)} — ${formatTime(block.endMin)}`;
+    $('modeElapsed').classList.toggle('active', state.timerMode === 'elapsed'); $('modeRemaining').classList.toggle('active', state.timerMode === 'remaining');
+}
+function setTimerMode(mode) { state.timerMode = mode; renderTimer(); saveState() }
+function updateButtons() {
+    $('btnStart').classList.toggle('hidden', state.status === 'working' || state.status === 'break' || state.status === 'lunch');
+    $('btnPause').classList.toggle('hidden', state.status !== 'working');
+    $('btnSkip').classList.toggle('hidden', !(state.status === 'break' || state.status === 'lunch'));
+}
+function tick() {
+    const now = Date.now(), elapsed = Math.max(1, Math.floor((now - (state.lastTickAt || now)) / 1000));
+    state.lastTickAt = now;
+    if (state.status === 'working') {
+        state.secondsIntoBlock += elapsed; state.totalWorkSecondsToday += elapsed;
         state.cardsDoneToday = Math.floor(state.totalWorkSecondsToday / state.timePerCard);
-
-        $('timer').textContent = formatDuration(state.secondsIntoBlock);
-        updateStats();
-
-        if (state.secondsIntoBlock >= getCurrentBlockSeconds()) {
-            state.secondsIntoBlock = 0;
-            goToNextBlock();
-        }
-    }, 1000);
-
-    saveState();
-}
-
-function goToNextBlock() {
-    clearInterval(tickInterval);
-
-    const next = state.schedule[state.currentScheduleIndex + 1];
-
-    if (!next) {
-        endDay();
-        return;
+        if (state.secondsIntoBlock >= currentBlock().duration * 60) { state.secondsIntoBlock = 0; goNextBlock(); return }
+    } else if (state.status === 'break' || state.status === 'lunch') {
+        state.breakSecondsLeft -= elapsed; if (state.breakSecondsLeft <= 0) { state.breakSecondsLeft = 0; goNextBlock(); return }
     }
-
-    state.currentScheduleIndex++;
-    state.secondsIntoBlock = 0;
-
-    if (next.type === 'break' || next.type === 'lunch') {
-        goToBreak(next);
-    } else {
-        startWork();
-    }
-
-    saveState();
+    renderTimer(); updateStats();
 }
-
-function goToBreak(block) {
-    state.status = block.type;
-    state.breakSecondsLeft = block.duration * 60;
-
-    $('statusText').textContent = block.type === 'break' ? '☕ Перерыв' : '🍽 Обед';
-    $('timer').className = 'timer ' + block.type;
-    $('timer').textContent = formatDuration(state.breakSecondsLeft);
-    $('btnSkip').classList.remove('hidden');
-    $('btnPause').classList.add('hidden');
-    $('btnStart').classList.add('hidden');
-
+function startWork() {
+    if (!currentBlock() || currentBlock().type !== 'work') return;
+    state.status = 'working'; state.lastTickAt = Date.now(); $('statusText').textContent = '💼 Работаем'; updateButtons(); clearInterval(tickInterval); tickInterval = setInterval(tick, 1000); renderTimer(); saveState();
+}
+function pauseWork() { clearInterval(tickInterval); if (state.status === 'working') { tick(); state.status = 'paused'; state.lastTickAt = null; $('statusText').textContent = '⏸ Пауза'; updateButtons(); saveState() } }
+function goNextBlock() {
+    clearInterval(tickInterval); state.currentScheduleIndex++;
+    if (!state.schedule[state.currentScheduleIndex]) { endDay(); return }
+    state.secondsIntoBlock = 0; const b = currentBlock();
+    if (b.type === 'work') { state.status = 'idle'; $('statusText').textContent = 'Готов к работе'; updateButtons(); renderSchedule(); saveState() }
+    else { state.status = b.type; state.breakSecondsLeft = b.duration * 60; state.lastTickAt = Date.now(); $('statusText').textContent = b.type === 'break' ? '☕ Перерыв' : '🍽 Обед'; updateButtons(); renderTimer(); renderSchedule(); tickInterval = setInterval(tick, 1000); saveState() }
+}
+function skipBreak() { if (!['break', 'lunch'].includes(state.status)) return; clearInterval(tickInterval); state.breakSecondsLeft = 0; goNextBlock() }
+function restoreTimer() {
     clearInterval(tickInterval);
-    tickInterval = setInterval(() => {
-        state.breakSecondsLeft--;
-        $('timer').textContent = formatDuration(state.breakSecondsLeft);
-
-        if (state.breakSecondsLeft <= 0) {
-            goToNextBlock();
+    if (state.status === 'working' || state.status === 'break' || state.status === 'lunch') {
+        if (state.lastTickAt) {
+            const elapsed = Math.floor((Date.now() - state.lastTickAt) / 1000);
+            if (elapsed > 0) {
+                if (state.status === 'working') { state.secondsIntoBlock += elapsed; state.totalWorkSecondsToday += elapsed; state.cardsDoneToday = Math.floor(state.totalWorkSecondsToday / state.timePerCard) }
+                else state.breakSecondsLeft -= elapsed;
+            }
         }
-    }, 1000);
-
-    renderSchedule();
-    saveState();
+        state.lastTickAt = Date.now();
+        if (state.status === 'working' && state.secondsIntoBlock >= currentBlock().duration * 60) { state.secondsIntoBlock = 0; goNextBlock(); return }
+        if ((state.status === 'break' || state.status === 'lunch') && state.breakSecondsLeft <= 0) { goNextBlock(); return }
+        tickInterval = setInterval(tick, 1000);
+    }
+    $('statusText').textContent = state.status === 'paused' ? '⏸ Пауза' : state.status === 'working' ? '💼 Работаем' : state.status === 'break' ? '☕ Перерыв' : state.status === 'lunch' ? '🍽 Обед' : 'Готов к работе';
+    updateButtons(); renderTimer();
 }
-
-function skipBreak() {
-    clearInterval(tickInterval);
-    state.breakSecondsLeft = 0;
-    goToNextBlock();
-    saveState();
-}
-
-function pauseWork() {
-    clearInterval(tickInterval);
-    state.status = 'paused';
-    $('statusText').textContent = '⏸ Пауза';
-    $('btnStart').classList.remove('hidden');
-    $('btnPause').classList.add('hidden');
-    saveState();
-}
-
-//  СТАТИСТИКА 
-function updateStats() {
-    $('statDone').textContent = state.cardsDoneToday;
-
-    const left = Math.max(0, state.cardsPerDayNorm - state.cardsDoneToday);
-    $('statLeft').textContent = left;
-
-    $('statPerHour').textContent = Math.ceil(state.cardsPerDayNorm / state.hoursPerDay);
-
-    const pct = state.cardsPerDayNorm > 0
-        ? Math.min(100, (state.cardsDoneToday / state.cardsPerDayNorm) * 100)
-        : 0;
-    $('progressFill').style.width = pct + '%';
-
-    renderSchedule();
-    saveState();
-}
-
-//  ЗАВЕРШЕНИЕ ДНЯ 
 function endDay() {
     clearInterval(tickInterval);
-
-    const done = state.cardsDoneToday;
-    const norm = state.cardsPerDayNorm;
-
-    if (done >= norm) {
-        alert(`✅ День ${state.currentDay} выполнен!\nСделано: ${done} из ${norm}`);
-    } else {
-        const deficit = norm - done;
-        alert(`⚠️ День ${state.currentDay} не выполнен.\nСделано: ${done} из ${norm}\nДефицит ${deficit} перенесён на следующий день.`);
-    }
-
-    // Обновляем общий прогресс
+    if (state.status === 'working') tick();
+    const done = state.cardsDoneToday, norm = state.cardsPerDayNorm, deficit = Math.max(0, norm - done);
+    state.history.push({ day: state.currentDay, done, norm });
     state.totalCardsDone += done;
-
-    // Проверка окончания месяца
     if (state.currentDay >= state.daysInMonth || state.totalCardsDone >= state.totalCards) {
         alert(`🎉 Месяц завершён!\nВсего сделано: ${state.totalCardsDone} из ${state.totalCards}`);
-        clearState();
-        state.appStarted = false;
-        showSetupScreen();
-        return;
+        clearState(); state.appStarted = false; showSetup(); return;
     }
-
-    // Дефицит = что не успел сделать
-    const deficit = Math.max(0, norm - done);
-
-    // Переходим на следующий день
-    state.currentDay++;
-    state.carryover = deficit;
-    state.cardsPerDayNorm = state.baseNorm + state.carryover;
-
-    // Сбрасываем дневные счётчики
-    state.cardsDoneToday = 0;
-    state.totalWorkSecondsToday = 0;
-    state.secondsIntoBlock = 0;
-    state.currentScheduleIndex = 0;
-    state.status = 'idle';
-    state.schedule = []; // перегенерируем график
-
-    recalculateNorm();
-    buildSchedule();
-    renderSchedule();
-    resetTimer();
-    updateStats();
-    saveState();
+    state.currentDay++; state.carryover = deficit; state.cardsPerDayNorm = state.baseNorm + deficit;
+    state.cardsDoneToday = 0; state.totalWorkSecondsToday = 0; state.secondsIntoBlock = 0; state.currentScheduleIndex = 0; state.status = 'idle'; state.schedule = []; state.lastTickAt = null;
+    recalc(); buildSchedule(); renderSchedule(); renderTimer(); updateButtons(); updateStats(); saveState();
 }
+function toggleTheme() {
+    const root = document.documentElement, next = root.dataset.theme === 'dark' ? 'light' : 'dark'; root.dataset.theme = next; localStorage.setItem('cards_theme', next);
+}
+function loadTheme() { document.documentElement.dataset.theme = localStorage.getItem('cards_theme') || 'light' }
 
-//  ЭКСПОРТ В HTML 
-window.startApp = startApp;
-window.backToSettings = backToSettings;
-window.resetProgress = resetProgress;
-window.startWork = startWork;
-window.pauseWork = pauseWork;
-window.skipBreak = skipBreak;
-window.endDay = endDay;
-
-//  ВОССТАНОВЛЕНИЕ ПРИ ЗАГРУЗКЕ 
-window.addEventListener('load', () => {
-    const saved = loadRawState();
-
-    if (saved && saved.appStarted) {
-        Object.assign(state, saved);
-
-        // Миграция со старых версий
-        if (!state.baseNorm) {
-            state.baseNorm = Math.ceil(state.totalCards / state.daysInMonth);
-        }
-        if (state.carryover === undefined) state.carryover = 0;
-        if (state.totalCardsDone === undefined) state.totalCardsDone = 0;
-        state.cardsPerDayNorm = state.baseNorm + state.carryover;
-
-        fillFormFromState();
-        showWorkScreen();
-        recalculateNorm(); // <-- фикс: обновляем номер дня и норму в UI
-        if (!state.schedule || state.schedule.length === 0) {
-            buildSchedule();
-        }
-        renderSchedule();
-        updateStats();
-        resetTimer();
-    } else {
-        showSetupScreen();
-    }
+document.addEventListener('keydown', e => {
+    if (e.target.matches('input,textarea')) return;
+    if (e.code === 'Space') { e.preventDefault(); if (state.status === 'working') pauseWork(); else if (state.status === 'idle' || state.status === 'paused') startWork() }
+    if (e.key.toLowerCase() === 's') skipBreak();
+    if (e.key.toLowerCase() === 'e') endDay();
 });
+window.addEventListener('beforeunload', () => { if (state.status === 'working' || state.status === 'break' || state.status === 'lunch') { tick(); } saveState() });
+window.addEventListener('load', () => {
+    loadTheme();
+    const saved = loadState();
+    if (saved?.appStarted) {
+        Object.assign(state, saved); fillForm(); recalc();
+        if (!state.schedule?.length) buildSchedule();
+        renderSchedule(); showWork(); restoreTimer(); updateStats();
+    } else showSetup();
+});
+window.startApp = startApp; window.resetProgress = resetProgress; window.backToSettings = backToSettings;
+window.startWork = startWork; window.pauseWork = pauseWork; window.skipBreak = skipBreak; window.endDay = endDay;
+window.toggleTheme = toggleTheme; window.setTimerMode = setTimerMode;
